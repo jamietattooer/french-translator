@@ -8,52 +8,6 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-  // 1. Set your API Key
-  let apiKey = "AQ.Ab8RN6JMgrKKOY-xy3CC-PpAsYqgXxEuBa7weGlovnMh3rzCaA";[cite: 6]
-
-  // 2. Initialize UI on load
-  window.addEventListener('DOMContentLoaded', () => {
-    // If there's a key in localStorage, use it, otherwise keep the hardcoded key
-    const storedKey = localStorage.getItem('gemini_api_key');
-    if (storedKey) {
-      apiKey = storedKey;
-    } else {
-      localStorage.setItem('gemini_api_key', apiKey);
-    }
-    updateApiKeyUI();
-  });
-
-  // API Key Modal Functions
-  function openApiKeyModal() {
-    document.getElementById('apiKeyInput').value = apiKey;
-    document.getElementById('apiKeyModal').classList.remove('hidden');
-  }
-
-  function closeApiKeyModal() {
-    document.getElementById('apiKeyModal').classList.add('hidden');
-  }
-
-  function saveApiKey() {
-    const val = document.getElementById('apiKeyInput').value.trim();
-    apiKey = val;
-    localStorage.setItem('gemini_api_key', val);
-    updateApiKeyUI();
-    closeApiKeyModal();
-    handleInput();
-  }
-
-  function updateApiKeyUI() {
-    if (apiKey) {
-      apiKeyBadgeEl.className = 'w-2 h-2 rounded-full bg-emerald-500';
-      apiKeyBtnTextEl.innerText = 'Key Configured';
-    } else {
-      apiKeyBadgeEl.className = 'w-2 h-2 rounded-full bg-amber-500';
-      apiKeyBtnTextEl.innerText = 'Set API Key';
-    }
-  }
-</script>
-  <script>
-    
     tailwind.config = {
       darkMode: 'class',
       theme: {
@@ -244,7 +198,7 @@
         <!-- Footer indicator -->
         <div class="flex items-center justify-between pt-3 border-t border-slate-800 text-xs text-slate-500 mt-2">
           <span id="activeToneDisplay" class="font-medium text-slate-400">Mode: Casual French</span>
-          <span class="text-slate-600">Gemini 2.5 Flash</span>
+          <span class="text-slate-600">Gemini 2.0 Flash</span>
         </div>
 
       </div>
@@ -276,7 +230,7 @@
       <div class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-slate-400 mb-1">API Key</label>
-          <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition" />
+          <input type="password" id="apiKeyInput" placeholder="AQ..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition" />
         </div>
 
         <div class="text-xs text-slate-500">
@@ -296,7 +250,7 @@
     let currentDirection = 'en-fr'; 
     let currentTone = 'casual';    
     let debounceTimer = null;
-    let apiKey = localStorage.getItem('gemini_api_key') || '';
+    let apiKey = localStorage.getItem('gemini_api_key') || "AQ.Ab8RN6JMgrKKOY-xy3CC-PpAsYqgXxEuBa7weGlovnMh3rzCaA";[cite: 6]
 
     // Elements
     const inputTextEl = document.getElementById('inputText');
@@ -341,7 +295,8 @@
         const systemPrompt = getSystemInstruction(currentDirection, currentTone);
         const userPrompt = `Translate this text: "${text}"`;
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        // Standard Gemini 2.0 Flash endpoint
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
 
         const payload = {
           contents: [{ parts: [{ text: userPrompt }] }],
@@ -359,13 +314,19 @@
           }
         };
 
+        // Pass API Key in headers instead of URL param (Required for AQ. keys)
         const response = await fetch(apiUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
           body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
+          const errBody = await response.json().catch(() => ({}));
+          console.error("API Error Response:", errBody);
           throw new Error(`API Error: ${response.status}`);
         }
 
