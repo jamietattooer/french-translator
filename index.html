@@ -57,22 +57,21 @@
       animation: subtle-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
   </style>
-</head>
-<body class="h-full flex flex-col min-h-screen bg-[#f7f4ee] text-[#252422] antialiased selection:bg-[#7a8a63] selection:text-white">
-
-  <header class="border-b border-[#3f4239] bg-[#2e3029] text-[#f7f4ee] sticky top-0 z-20">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-[#586445] flex items-center justify-center text-white shadow-md font-bold text-xl border border-[#7a8a63]">
-          🇫🇷
+<!-- Top Brand Header -->
+    <header class="flex flex-col md:flex-row md:items-end justify-between border-b pb-6 border-[#e2dcd0] gap-4">
+      <div>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-3 h-3 rounded-full bg-olive inline-block"></span>
+          <span class="text-xs uppercase tracking-widest font-semibold text-[#586445]">Design System & Language Studio</span>
         </div>
-        <div>
-             <h1 class="text-3xl sm:text-4xl md:text-5xl font-serif-title font-medium text-dark tracking-tight">
+        <h1 class="text-3xl sm:text-4xl md:text-5xl font-serif-title font-medium text-dark tracking-tight">
           Atelier de Traduction
         </h1>
-          <p class="text-xs text-[#b0ada8] hidden sm:block">Conversational French vs Rigid Translation</p>
-        </div>
       </div>
+      <p class="text-xs sm:text-sm text-[#6c6960] max-w-md leading-relaxed font-light">
+        A calm, organic interface showcasing natural French translations, nuanced tonal rephrasing, and a harmonious earthy palette.
+      </p>
+    </header>
 
       <!-- API Key Status / Button -->
       <div class="flex items-center space-x-3">
