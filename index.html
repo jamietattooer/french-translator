@@ -245,260 +245,261 @@
     </div>
   </div>
 
-  <script>
-    // Application State
-    let currentDirection = 'en-fr'; 
-    let currentTone = 'casual';    
-    let debounceTimer = null;
-    let apiKey = localStorage.getItem('gemini_api_key') || '';
+ <script>
+  // Application State
+  let currentDirection = 'en-fr'; 
+  let currentTone = 'casual';    
+  let debounceTimer = null;
+  let apiKey = localStorage.getItem('gemini_api_key') || '';
 
-    // Elements
-    const inputTextEl = document.getElementById('inputText');
-    const outputContainerEl = document.getElementById('outputContainer');
-    const nuanceBoxEl = document.getElementById('nuanceBox');
-    const nuanceTextEl = document.getElementById('nuanceText');
-    const loadingOverlayEl = document.getElementById('loadingOverlay');
-    const charCountEl = document.getElementById('charCount');
-    const activeToneDisplayEl = document.getElementById('activeToneDisplay');
-    const apiKeyBadgeEl = document.getElementById('apiKeyBadge');
-    const apiKeyBtnTextEl = document.getElementById('apiKeyBtnText');
+  // Elements
+  const inputTextEl = document.getElementById('inputText');
+  const outputContainerEl = document.getElementById('outputContainer');
+  const nuanceBoxEl = document.getElementById('nuanceBox');
+  const nuanceTextEl = document.getElementById('nuanceText');
+  const loadingOverlayEl = document.getElementById('loadingOverlay');
+  const charCountEl = document.getElementById('charCount');
+  const activeToneDisplayEl = document.getElementById('activeToneDisplay');
+  const apiKeyBadgeEl = document.getElementById('apiKeyBadge');
+  const apiKeyBtnTextEl = document.getElementById('apiKeyBtnText');
 
-    window.addEventListener('DOMContentLoaded', () => {
-      updateApiKeyUI();
-    });
+  window.addEventListener('DOMContentLoaded', () => {
+    updateApiKeyUI();
+  });
 
-    // Real-Time Debounced Input Handler
-    function handleInput() {
-      const text = inputTextEl.value;
-      charCountEl.innerText = `${text.length} character${text.length === 1 ? '' : 's'}`;
+  // Real-Time Debounced Input Handler
+  function handleInput() {
+    const text = inputTextEl.value;
+    charCountEl.innerText = `${text.length} character${text.length === 1 ? '' : 's'}`;
 
-      if (!text.trim()) {
-        outputContainerEl.innerHTML = `<span class="text-slate-600 italic">Translation will appear here instantly as you type...</span>`;
-        nuanceBoxEl.classList.add('hidden');
-        return;
-      }
-
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        performTranslation();
-      }, 450);
+    if (!text.trim()) {
+      outputContainerEl.innerHTML = `<span class="text-slate-600 italic">Translation will appear here instantly as you type...</span>`;
+      nuanceBoxEl.classList.add('hidden');
+      return;
     }
 
-    // Call Gemini REST API
-    async function performTranslation() {
-      const text = inputTextEl.value.trim();
-      if (!text) return;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      performTranslation();
+    }, 450);
+  }
 
-      loadingOverlayEl.classList.remove('hidden');
+  // Call Gemini REST API
+  async function performTranslation() {
+    const text = inputTextEl.value.trim();
+    if (!text) return;
 
-      try {
-        const systemPrompt = getSystemInstruction(currentDirection, currentTone);
-        const userPrompt = `Translate this text: "${text}"`;
+    if (!apiKey) {
+      outputContainerEl.innerHTML = `<span class="text-amber-400 font-normal">Please set your free Gemini API Key using the button in the top right to enable live translations.</span>`;
+      openApiKeyModal();
+      return;
+    }
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    loadingOverlayEl.classList.remove('hidden');
 
-        const payload = {
-          contents: [{ parts: [{ text: userPrompt }] }],
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "OBJECT",
-              properties: {
-                mainTranslation: { type: "STRING" },
-                nuanceNote: { type: "STRING" }
-              },
-              required: ["mainTranslation"]
-            }
+    try {
+      const systemPrompt = getSystemInstruction(currentDirection, currentTone);
+      const userPrompt = `Translate this text: "${text}"`;
+
+      // FIXED: Updated model name to gemini-1.5-flash
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+      const payload = {
+        contents: [{ parts: [{ text: userPrompt }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              mainTranslation: { type: "STRING" },
+              nuanceNote: { type: "STRING" }
+            },
+            required: ["mainTranslation"]
           }
-        };
-
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status}`);
         }
+      };
 
-        const data = await response.json();
-        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (responseText) {
-          const parsed = JSON.parse(responseText);
-          renderTranslation(parsed.mainTranslation, parsed.nuanceNote);
-        } else {
-          outputContainerEl.innerText = "Error generating translation.";
-        }
-
-      } catch (err) {
-        console.error("Translation Error:", err);
-        if (!apiKey) {
-          outputContainerEl.innerHTML = `<span class="text-amber-400 font-normal">Please set your free Gemini API Key using the button in the top right to enable live translations.</span>`;
-          openApiKeyModal();
-        } else {
-          outputContainerEl.innerHTML = `<span class="text-rose-400 font-normal">Failed to translate. Please check your API key or network connection.</span>`;
-        }
-      } finally {
-        loadingOverlayEl.classList.add('hidden');
-      }
-    }
-
-    // System Instruction Builder based on selected Tone
-    function getSystemInstruction(direction, tone) {
-      let instructions = `You are a French language expert translator specializing in natural, authentic conversational phrasing vs rigid textbook dictionary wording. `;
-
-      if (direction === 'en-fr') {
-        instructions += `Translate English to French. `;
-        if (tone === 'casual') {
-          instructions += `Use casual everyday spoken French (argot/familier), common oral contractions (e.g., "t'as", "c'est"), and the informal 'tu' form. Avoid overly stiff dictionary phrasing. `;
-        } else {
-          instructions += `Use polite, formal, and respectful French (vous form), proper syntax, and polite expressions suitable for professional contexts. `;
-        }
-      } else if (direction === 'fr-en') {
-        instructions += `Translate French text into natural, idiomatic English. `;
-        if (tone === 'casual') {
-          instructions += `Render the English in a relaxed conversational tone. `;
-        } else {
-          instructions += `Render the English in a polite, respectful, standard tone. `;
-        }
-      } else if (direction === 'fr-fr') {
-        instructions += `Rephrase French text. `;
-        if (tone === 'casual') {
-          instructions += `Rephrase standard/formal French into authentic casual spoken French (slang, idioms). `;
-        } else {
-          instructions += `Rephrase casual French into polite, formal French (vous form, refined wording). `;
-        }
-      }
-
-      instructions += `Return JSON with 'mainTranslation' (the translated output) and an optional 'nuanceNote' (a brief 1-sentence explanation of word choice or alternative phrasing).`;
-
-      return instructions;
-    }
-
-    // Render Results
-    function renderTranslation(translation, nuance) {
-      outputContainerEl.innerText = translation;
-
-      if (nuance && nuance.trim().length > 0) {
-        nuanceTextEl.innerText = nuance;
-        nuanceBoxEl.classList.remove('hidden');
-      } else {
-        nuanceBoxEl.classList.add('hidden');
-      }
-    }
-
-    // Toggle Direction
-    function setDirection(dir) {
-      currentDirection = dir;
-
-      ['en-fr', 'fr-en', 'fr-fr'].forEach(d => {
-        const btn = document.getElementById(`dir-${d}`);
-        if (d === dir) {
-          btn.className = 'flex-1 md:flex-none px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center justify-center gap-2 bg-indigo-600 text-white shadow-sm';
-        } else {
-          btn.className = 'flex-1 md:flex-none px-4 py-2 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-2';
-        }
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
-      const inputLabel = document.getElementById('inputLabel');
-      const outputLabel = document.getElementById('outputLabel');
-
-      if (dir === 'en-fr') {
-        inputLabel.innerHTML = `<i class="fa-solid fa-pen text-indigo-400"></i> English Input`;
-        outputLabel.innerHTML = `<i class="fa-solid fa-language text-emerald-400"></i> French Natural Translation`;
-      } else if (dir === 'fr-en') {
-        inputLabel.innerHTML = `<i class="fa-solid fa-pen text-indigo-400"></i> French Input`;
-        outputLabel.innerHTML = `<i class="fa-solid fa-language text-emerald-400"></i> English Translation`;
-      } else {
-        inputLabel.innerHTML = `<i class="fa-solid fa-pen text-indigo-400"></i> French Input`;
-        outputLabel.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> French Rephrase (${currentTone})`;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `API Error: ${response.status}`);
       }
 
-      handleInput();
+      const data = await response.json();
+      const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (responseText) {
+        const parsed = JSON.parse(responseText);
+        renderTranslation(parsed.mainTranslation, parsed.nuanceNote);
+      } else {
+        outputContainerEl.innerText = "Error generating translation.";
+      }
+
+    } catch (err) {
+      console.error("Translation Error:", err);
+      outputContainerEl.innerHTML = `<span class="text-rose-400 font-normal">Failed to translate: ${err.message}</span>`;
+    } finally {
+      loadingOverlayEl.classList.add('hidden');
     }
+  }
 
-    // Toggle Tone Mode
-    function setTone(tone) {
-      currentTone = tone;
+  // System Instruction Builder based on selected Tone
+  function getSystemInstruction(direction, tone) {
+    let instructions = `You are a French language expert translator specializing in natural, authentic conversational phrasing vs rigid textbook dictionary wording. `;
 
-      const casualBtn = document.getElementById('tone-casual');
-      const politeBtn = document.getElementById('tone-polite');
-
+    if (direction === 'en-fr') {
+      instructions += `Translate English to French. `;
       if (tone === 'casual') {
-        casualBtn.className = 'px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 bg-slate-800 text-indigo-400 border border-indigo-500/30';
-        politeBtn.className = 'px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200';
-        activeToneDisplayEl.innerText = 'Mode: Casual / Spoken French';
+        instructions += `Use casual everyday spoken French (argot/familier), common oral contractions (e.g., "t'as", "c'est"), and the informal 'tu' form. Avoid overly stiff dictionary phrasing. `;
       } else {
-        politeBtn.className = 'px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 bg-slate-800 text-indigo-400 border border-indigo-500/30';
-        casualBtn.className = 'px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200';
-        activeToneDisplayEl.innerText = 'Mode: Polite / Formal French';
+        instructions += `Use polite, formal, and respectful French (vous form), proper syntax, and polite expressions suitable for professional contexts. `;
       }
-
-      handleInput();
+    } else if (direction === 'fr-en') {
+      instructions += `Translate French text into natural, idiomatic English. `;
+      if (tone === 'casual') {
+        instructions += `Render the English in a relaxed conversational tone. `;
+      } else {
+        instructions += `Render the English in a polite, respectful, standard tone. `;
+      }
+    } else if (direction === 'fr-fr') {
+      instructions += `Rephrase French text. `;
+      if (tone === 'casual') {
+        instructions += `Rephrase standard/formal French into authentic casual spoken French (slang, idioms). `;
+      } else {
+        instructions += `Rephrase casual French into polite, formal French (vous form, refined wording). `;
+      }
     }
 
-    // Apply Sample
-    function applySample(text) {
-      inputTextEl.value = text;
-      handleInput();
+    instructions += `Return JSON with 'mainTranslation' (the translated output) and an optional 'nuanceNote' (a brief 1-sentence explanation of word choice or alternative phrasing).`;
+
+    return instructions;
+  }
+
+  // Render Results
+  function renderTranslation(translation, nuance) {
+    outputContainerEl.innerText = translation;
+
+    if (nuance && nuance.trim().length > 0) {
+      nuanceTextEl.innerText = nuance;
+      nuanceBoxEl.classList.remove('hidden');
+    } else {
+      nuanceBoxEl.classList.add('hidden');
+    }
+  }
+
+  // Toggle Direction
+  function setDirection(dir) {
+    currentDirection = dir;
+
+    ['en-fr', 'fr-en', 'fr-fr'].forEach(d => {
+      const btn = document.getElementById(`dir-${d}`);
+      if (d === dir) {
+        btn.className = 'flex-1 md:flex-none px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center justify-center gap-2 bg-indigo-600 text-white shadow-sm';
+      } else {
+        btn.className = 'flex-1 md:flex-none px-4 py-2 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 transition flex items-center justify-center gap-2';
+      }
+    });
+
+    const inputLabel = document.getElementById('inputLabel');
+    const outputLabel = document.getElementById('outputLabel');
+
+    if (dir === 'en-fr') {
+      inputLabel.innerHTML = `<i class="fa-solid fa-pen text-indigo-400"></i> English Input`;
+      outputLabel.innerHTML = `<i class="fa-solid fa-language text-emerald-400"></i> French Natural Translation`;
+    } else if (dir === 'fr-en') {
+      inputLabel.innerHTML = `<i class="fa-solid fa-pen text-indigo-400"></i> French Input`;
+      outputLabel.innerHTML = `<i class="fa-solid fa-language text-emerald-400"></i> English Translation`;
+    } else {
+      inputLabel.innerHTML = `<i class="fa-solid fa-pen text-indigo-400"></i> French Input`;
+      outputLabel.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i> French Rephrase (${currentTone})`;
     }
 
-    // Clear Input
-    function clearInput() {
-      inputTextEl.value = '';
-      handleInput();
+    handleInput();
+  }
+
+  // Toggle Tone Mode
+  function setTone(tone) {
+    currentTone = tone;
+
+    const casualBtn = document.getElementById('tone-casual');
+    const politeBtn = document.getElementById('tone-polite');
+
+    if (tone === 'casual') {
+      casualBtn.className = 'px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 bg-slate-800 text-indigo-400 border border-indigo-500/30';
+      politeBtn.className = 'px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200';
+      activeToneDisplayEl.innerText = 'Mode: Casual / Spoken French';
+    } else {
+      politeBtn.className = 'px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 bg-slate-800 text-indigo-400 border border-indigo-500/30';
+      casualBtn.className = 'px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 text-slate-400 hover:text-slate-200';
+      activeToneDisplayEl.innerText = 'Mode: Polite / Formal French';
     }
 
-    // Copy Output to Clipboard
-    function copyOutput() {
-      const text = outputContainerEl.innerText;
-      if (!text || text.includes('Translation will appear here')) return;
+    handleInput();
+  }
 
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
+  // Apply Sample
+  function applySample(text) {
+    inputTextEl.value = text;
+    handleInput();
+  }
 
+  // Clear Input
+  function clearInput() {
+    inputTextEl.value = '';
+    handleInput();
+  }
+
+  // Copy Output to Clipboard (FIXED)
+  async function copyOutput() {
+    const text = outputContainerEl.innerText;
+    if (!text || text.includes('Translation will appear here')) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
       const copyBtnText = document.getElementById('copyBtnText');
       copyBtnText.innerText = 'Copied!';
       setTimeout(() => {
         copyBtnText.innerText = 'Copy';
       }, 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
     }
+  }
 
-    // API Key Modal Functions
-    function openApiKeyModal() {
-      document.getElementById('apiKeyInput').value = apiKey;
-      document.getElementById('apiKeyModal').classList.remove('hidden');
-    }
+  // API Key Modal Functions
+  function openApiKeyModal() {
+    document.getElementById('apiKeyInput').value = apiKey;
+    document.getElementById('apiKeyModal').classList.remove('hidden');
+  }
 
-    function closeApiKeyModal() {
-      document.getElementById('apiKeyModal').classList.add('hidden');
-    }
+  function closeApiKeyModal() {
+    document.getElementById('apiKeyModal').classList.add('hidden');
+  }
 
-    function saveApiKey() {
-      const val = document.getElementById('apiKeyInput').value.trim();
-      apiKey = val;
-      localStorage.setItem('gemini_api_key', val);
-      updateApiKeyUI();
-      closeApiKeyModal();
-      handleInput();
-    }
+  function saveApiKey() {
+    const val = document.getElementById('apiKeyInput').value.trim();
+    apiKey = val;
+    localStorage.setItem('gemini_api_key', val);
+    updateApiKeyUI();
+    closeApiKeyModal();
+    handleInput();
+  }
 
-    function updateApiKeyUI() {
-      if (apiKey) {
-        apiKeyBadgeEl.className = 'w-2 h-2 rounded-full bg-emerald-500';
-        apiKeyBtnTextEl.innerText = 'Key Configured';
-      } else {
-        apiKeyBadgeEl.className = 'w-2 h-2 rounded-full bg-amber-500';
-        apiKeyBtnTextEl.innerText = 'Set API Key';
-      }
+  function updateApiKeyUI() {
+    if (apiKey) {
+      apiKeyBadgeEl.className = 'w-2 h-2 rounded-full bg-emerald-500';
+      apiKeyBtnTextEl.innerText = 'Key Configured';
+    } else {
+      apiKeyBadgeEl.className = 'w-2 h-2 rounded-full bg-amber-500';
+      apiKeyBtnTextEl.innerText = 'Set API Key';
     }
-  </script>
+  }
+</script>
 </body>
 </html>
