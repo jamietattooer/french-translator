@@ -203,7 +203,7 @@
         <!-- Footer indicator -->
         <div class="flex items-center justify-between pt-3 border-t border-[#586445]/20 text-xs text-[#586445] mt-2">
           <span id="activeToneDisplay" class="font-medium text-[#252422]">Mode: Casual French</span>
-          <span class="text-[#586445]">Gemini 2.5 Flash</span>
+          <span class="text-[#586445]">Gemini 3.6 Flash</span>
         </div>
 
       </div>
@@ -306,7 +306,7 @@
       const systemPrompt = getSystemInstruction(currentDirection, currentTone);
       const userPrompt = `Translate this text: "${text}"`;
 
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
       const payload = {
         contents: [{ parts: [{ text: userPrompt }] }],
         systemInstruction: { parts: [{ text: systemPrompt }] },
